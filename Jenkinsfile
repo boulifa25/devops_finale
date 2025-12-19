@@ -102,23 +102,22 @@ pipeline {
     /* =======================
        6. SONARQUBE
     ======================== */
-    stage('SonarQube Analysis') {
-      steps {
-        withSonarQubeEnv('sonarqube-docker') {
-          withCredentials([string(credentialsId: 'sonar-token-student', variable: 'SONAR_TOKEN')]) {
-            sh '''
-              MAVEN_VERSION=3.9.9
-              MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-              ./${MAVEN_DIR}/bin/mvn clean verify sonar:sonar \
-                -Dsonar.projectKey=tn.esprit:student-management \
-                -Dsonar.projectVersion=${BUILD_NUMBER} \
-                -Dsonar.token=$SONAR_TOKEN \
-                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-            '''
-          }
-        }
-      }
+   stage('SonarQube Analysis') {
+  steps {
+    withSonarQubeEnv('SonarQube') {
+      sh '''
+        MAVEN_VERSION=3.9.9
+        MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+
+        ./${MAVEN_DIR}/bin/mvn verify sonar:sonar \
+          -Dsonar.projectKey=tn.esprit:student-management \
+          -Dsonar.projectVersion=${BUILD_NUMBER} \
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+      '''
     }
+  }
+}
+
 
     /* =======================
        7. PACKAGE APPLICATION
