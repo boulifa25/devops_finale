@@ -104,31 +104,18 @@ pipeline {
     ======================== */
     stage('SonarQube Analysis') {
       steps {
-        withCredentials([string(credentialsId: 'sonar-token-student', variable: 'SONAR_TOKEN')]) {
-          sh '''
-            MAVEN_VERSION=3.9.9
-            MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-            
-            # Get SonarQube service URL from Kubernetes
-            SONAR_HOST="sonarqube.devops.svc.cluster.local"
-            SONAR_PORT="9000"
-            SONAR_URL="http://${SONAR_HOST}:${SONAR_PORT}"
-            
-            # Fallback to localhost if service DNS doesn't work
-            if ! curl -f -s --connect-timeout 5 ${SONAR_URL}/api/system/status > /dev/null 2>&1; then
-              echo "Trying localhost:9001 (port-forward)..."
-              SONAR_URL="http://localhost:9001"
-            fi
-            
-            echo "Using SonarQube URL: ${SONAR_URL}"
-            
-            ./${MAVEN_DIR}/bin/mvn clean verify sonar:sonar \
-              -Dsonar.host.url=${SONAR_URL} \
-              -Dsonar.projectKey=tn.esprit:student-management \
-              -Dsonar.projectVersion=${BUILD_NUMBER} \
-              -Dsonar.token=$SONAR_TOKEN \
-              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-          '''
+        withSonarQubeEnv('sonarqube-docker') {
+          withCredentials([string(credentialsId: 'sonar-token-student', variable: 'SONAR_TOKEN')]) {
+            sh '''
+              MAVEN_VERSION=3.9.9
+              MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+              ./${MAVEN_DIR}/bin/mvn clean verify sonar:sonar \
+                -Dsonar.projectKey=tn.esprit:student-management \
+                -Dsonar.projectVersion=${BUILD_NUMBER} \
+                -Dsonar.token=$SONAR_TOKEN \
+                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+            '''
+          }
         }
       }
     }
