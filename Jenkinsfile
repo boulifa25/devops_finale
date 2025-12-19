@@ -3,9 +3,7 @@ pipeline {
 
   options {
     timestamps()
-    // Let Jenkins automatically checkout the repo that contains this Jenkinsfile
-    // (boulifa25/devops_finale), which has the Maven project (pom.xml).
-    skipDefaultCheckout(false)
+    skipDefaultCheckout(true)
   }
 
   environment {
@@ -15,7 +13,15 @@ pipeline {
   }
 
   stages {
-    // Source code is checked out automatically by Jenkins based on the job SCM configuration.
+    /* =======================
+       1. SOURCE CONTROL
+    ======================== */
+    stage('Checkout Source Code') {
+      steps {
+        git branch: 'main',
+            url: 'https://github.com/boulifa25/reimagined-guide.git'
+      }
+    }
 
     stage('Prepare kubectl') {
       steps {
