@@ -19,7 +19,7 @@ pipeline {
     stage('Checkout Source Code') {
       steps {
         git branch: 'main',
-            url: 'https://github.com/boulifa25/reimagined-guide.git'
+            url: 'https://github.com/boulifa25/devops_finale.git'
       }
     }
 
