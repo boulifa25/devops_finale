@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: student-frontend
+  namespace: devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: student-frontend
+  template:
+    metadata:
+      labels:
+        app: student-frontend
+    spec:
+      containers:
+        - name: student-frontend
+          image: boulifa25/student-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - name: BACKEND_BASE_URL
+              value: "http://spring-service:8089/student"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: student-frontend
+  namespace: devops
+spec:
+  type: NodePort
+  selector:
+    app: student-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30092
