@@ -37,6 +37,28 @@ pipeline {
       }
     }
 
+    /* =======================
+       2. PREPARE MAVEN (local download)
+    ======================== */
+    stage('Prepare Maven') {
+      steps {
+        sh '''
+          set -e
+          MAVEN_VERSION=3.9.9
+          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+
+          if [ ! -d "$MAVEN_DIR" ]; then
+            echo "Downloading Maven $MAVEN_VERSION..."
+            curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz" -o maven.tgz
+            tar -xzf maven.tgz
+            rm maven.tgz
+          fi
+
+          ./${MAVEN_DIR}/bin/mvn -v
+        '''
+      }
+    }
+
    
 
     /* =======================
@@ -45,8 +67,9 @@ pipeline {
     stage('Maven Compile') {
       steps {
         sh '''
-          chmod +x mvnw
-          ./mvnw -s settings.xml clean compile
+          MAVEN_VERSION=3.9.9
+          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+          ./${MAVEN_DIR}/bin/mvn -s settings.xml clean compile
         '''
       }
     }
@@ -56,7 +79,11 @@ pipeline {
     ======================== */
     stage('Unit Tests (JUnit)') {
       steps {
-        sh './mvnw -s settings.xml test'
+        sh '''
+          MAVEN_VERSION=3.9.9
+          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+          ./${MAVEN_DIR}/bin/mvn -s settings.xml test
+        '''
       }
     }
 
@@ -65,7 +92,11 @@ pipeline {
     ======================== */
     stage('JaCoCo Coverage') {
       steps {
-        sh './mvnw -s settings.xml jacoco:report'
+        sh '''
+          MAVEN_VERSION=3.9.9
+          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+          ./${MAVEN_DIR}/bin/mvn -s settings.xml jacoco:report
+        '''
       }
     }
 
@@ -77,7 +108,9 @@ pipeline {
         withSonarQubeEnv('sonarqube-docker') {
           withCredentials([string(credentialsId: 'sonar-token-student', variable: 'SONAR_TOKEN')]) {
             sh '''
-              ./mvnw -s settings.xml clean verify sonar:sonar \
+              MAVEN_VERSION=3.9.9
+              MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+              ./${MAVEN_DIR}/bin/mvn -s settings.xml clean verify sonar:sonar \
                 -Dsonar.projectKey=tn.esprit:student-management \
                 -Dsonar.projectVersion=${BUILD_NUMBER} \
                 -Dsonar.token=$SONAR_TOKEN \
@@ -93,7 +126,11 @@ pipeline {
     ======================== */
     stage('Maven Package') {
       steps {
-        sh './mvnw -s settings.xml package -DskipTests'
+        sh '''
+          MAVEN_VERSION=3.9.9
+          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
+          ./${MAVEN_DIR}/bin/mvn -s settings.xml package -DskipTests
+        '''
       }
     }
 
