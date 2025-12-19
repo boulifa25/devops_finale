@@ -7,11 +7,14 @@ pipeline {
   }
 
   environment {
-    DOCKER_IMAGE = "boulifa25/student-management:latest"
-    KUBE_NS      = "devops"
+    MAVEN_VERSION = "3.9.9"
+    MAVEN_DIR     = "apache-maven-${MAVEN_VERSION}"
+    DOCKER_IMAGE  = "boulifa25/student-management:latest"
+    KUBE_NS       = "devops"
   }
 
   stages {
+
     /* =======================
        1. SOURCE CONTROL
     ======================== */
@@ -22,14 +25,16 @@ pipeline {
       }
     }
 
+    /* =======================
+       2. PREPARE KUBECTL
+    ======================== */
     stage('Prepare kubectl') {
       steps {
         sh '''
           set -e
           if [ ! -f ./kubectl ]; then
-            echo "Downloading kubectl into workspace..."
             curl -LO https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
-            chmod +x ./kubectl
+            chmod +x kubectl
           fi
           ./kubectl version --client
         '''
@@ -37,107 +42,79 @@ pipeline {
     }
 
     /* =======================
-       2. PREPARE MAVEN (local download)
+       3. PREPARE MAVEN
     ======================== */
     stage('Prepare Maven') {
       steps {
         sh '''
           set -e
-          MAVEN_VERSION=3.9.9
-          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-
           if [ ! -d "$MAVEN_DIR" ]; then
-            echo "Downloading Maven $MAVEN_VERSION..."
-            curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz" -o maven.tgz
+            curl -fsSL https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz -o maven.tgz
             tar -xzf maven.tgz
             rm maven.tgz
           fi
-
           ./${MAVEN_DIR}/bin/mvn -v
         '''
       }
     }
 
-   
-
     /* =======================
-       3. COMPILE
+       4. BUILD + TESTS
     ======================== */
-    stage('Maven Compile') {
+    stage('Compile & Unit Tests') {
       steps {
         sh '''
-          MAVEN_VERSION=3.9.9
-          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-          ./${MAVEN_DIR}/bin/mvn clean compile
+          ./${MAVEN_DIR}/bin/mvn clean test
         '''
       }
     }
 
     /* =======================
-       4. UNIT TESTS
-    ======================== */
-    stage('Unit Tests (JUnit)') {
-      steps {
-        sh '''
-          MAVEN_VERSION=3.9.9
-          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-          ./${MAVEN_DIR}/bin/mvn test
-        '''
-      }
-    }
-
-    /* =======================
-       5. CODE COVERAGE
+       5. JACOCO
     ======================== */
     stage('JaCoCo Coverage') {
       steps {
         sh '''
-          MAVEN_VERSION=3.9.9
-          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
           ./${MAVEN_DIR}/bin/mvn jacoco:report
         '''
       }
     }
 
     /* =======================
-       6. SONARQUBE
+       6. SONARQUBE ANALYSIS
     ======================== */
-   stage('SonarQube Analysis') {
-  steps {
-    withSonarQubeEnv('SonarQube') {
-      sh '''
-        MAVEN_VERSION=3.9.9
-        MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-
-        ./${MAVEN_DIR}/bin/mvn verify sonar:sonar \
-          -Dsonar.projectKey=tn.esprit:student-management \
-          -Dsonar.projectVersion=${BUILD_NUMBER} \
-          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-      '''
+    stage('SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv('sonarqube-docker') {
+          sh '''
+            ./${MAVEN_DIR}/bin/mvn verify sonar:sonar \
+              -Dsonar.projectKey=tn.esprit:student-management \
+              -Dsonar.projectVersion=${BUILD_NUMBER} \
+              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          '''
+        }
+      }
     }
-  }
-}
-
 
     /* =======================
-       7. PACKAGE APPLICATION
+       7. PACKAGE
     ======================== */
     stage('Maven Package') {
       steps {
         sh '''
-          MAVEN_VERSION=3.9.9
-          MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
           ./${MAVEN_DIR}/bin/mvn package -DskipTests
         '''
       }
     }
 
     /* =======================
-       8. DOCKER IMAGE
+       8. DOCKER
     ======================== */
     stage('Build Docker Image') {
       steps {
-        sh 'docker build -t ${DOCKER_IMAGE} -f Docker/student-app/Dockerfile .'
+        sh '''
+          docker build -t ${DOCKER_IMAGE} -f Docker/student-app/Dockerfile .
+        '''
       }
     }
 
@@ -157,7 +134,7 @@ pipeline {
     }
 
     /* =======================
-       9. KUBERNETES
+       9. KUBERNETES DEPLOY
     ======================== */
     stage('Deploy to Kubernetes') {
       steps {
@@ -172,35 +149,27 @@ pipeline {
       }
     }
 
-    
-    stage('Deploy Monitoring (Prometheus & Grafana)') {
+    /* =======================
+       10. MONITORING
+    ======================== */
+    stage('Deploy Monitoring') {
       steps {
         sh '''
-          set -e
-          echo "=== DEPLOY PROMETHEUS + GRAFANA ==="
           ./kubectl apply -n ${KUBE_NS} -f k8s/monitoring.yaml
-
-          echo "=== WAIT FOR ROLLOUT ==="
           ./kubectl rollout status -n ${KUBE_NS} deployment/prometheus
           ./kubectl rollout status -n ${KUBE_NS} deployment/grafana
-
-          echo "=== SERVICES ==="
-          ./kubectl get svc -n ${KUBE_NS} prometheus grafana -o wide
         '''
       }
     }
-    
 
     /* =======================
-       10. APPLICATION CHECK
+       11. HEALTH CHECK
     ======================== */
-    stage('Health Check (Spring Actuator)') {
+    stage('Health Check') {
       steps {
         sh '''
-          set -e
           NODEPORT=$(./kubectl get svc spring-service -n ${KUBE_NS} -o=jsonpath='{.spec.ports[0].nodePort}')
-          NODEIP=$(./kubectl get node minikube -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
-
+          NODEIP=$(./kubectl get node minikube -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
           curl -f http://$NODEIP:$NODEPORT/student/actuator/health
         '''
       }
