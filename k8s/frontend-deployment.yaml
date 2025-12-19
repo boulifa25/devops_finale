@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: student-frontend
-          image: boulifa25/student-frontend:latest
+          image: boulifa25/student-management:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80

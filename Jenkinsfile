@@ -44,7 +44,10 @@ pipeline {
     ======================== */
     stage('Maven Compile') {
       steps {
-        sh 'mvn -s settings.xml clean compile'
+        sh '''
+          chmod +x mvnw
+          ./mvnw -s settings.xml clean compile
+        '''
       }
     }
 
@@ -53,7 +56,7 @@ pipeline {
     ======================== */
     stage('Unit Tests (JUnit)') {
       steps {
-        sh 'mvn -s settings.xml test'
+        sh './mvnw -s settings.xml test'
       }
     }
 
@@ -62,7 +65,7 @@ pipeline {
     ======================== */
     stage('JaCoCo Coverage') {
       steps {
-        sh 'mvn -s settings.xml jacoco:report'
+        sh './mvnw -s settings.xml jacoco:report'
       }
     }
 
@@ -74,7 +77,7 @@ pipeline {
         withSonarQubeEnv('sonarqube-docker') {
           withCredentials([string(credentialsId: 'sonar-token-student', variable: 'SONAR_TOKEN')]) {
             sh '''
-              mvn -s settings.xml clean verify sonar:sonar \
+              ./mvnw -s settings.xml clean verify sonar:sonar \
                 -Dsonar.projectKey=tn.esprit:student-management \
                 -Dsonar.projectVersion=${BUILD_NUMBER} \
                 -Dsonar.token=$SONAR_TOKEN \
@@ -90,7 +93,7 @@ pipeline {
     ======================== */
     stage('Maven Package') {
       steps {
-        sh 'mvn -s settings.xml package -DskipTests'
+        sh './mvnw -s settings.xml package -DskipTests'
       }
     }
 
