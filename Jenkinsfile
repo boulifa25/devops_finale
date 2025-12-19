@@ -8,7 +8,6 @@ pipeline {
 
   environment {
     DOCKER_IMAGE = "boulifa25/student-management:latest"
-    NEXUS_REPO   = "http://localhost:8081/repository/maven-public/"
     KUBE_NS      = "devops"
   }
 
@@ -69,12 +68,7 @@ pipeline {
         sh '''
           MAVEN_VERSION=3.9.9
           MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-          if [ -f settings.xml ]; then
-            ./${MAVEN_DIR}/bin/mvn -s settings.xml clean compile
-          else
-            echo "settings.xml not found, using default Maven settings"
-            ./${MAVEN_DIR}/bin/mvn clean compile
-          fi
+          ./${MAVEN_DIR}/bin/mvn clean compile
         '''
       }
     }
@@ -87,11 +81,7 @@ pipeline {
         sh '''
           MAVEN_VERSION=3.9.9
           MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-          if [ -f settings.xml ]; then
-            ./${MAVEN_DIR}/bin/mvn -s settings.xml test
-          else
-            ./${MAVEN_DIR}/bin/mvn test
-          fi
+          ./${MAVEN_DIR}/bin/mvn test
         '''
       }
     }
@@ -104,11 +94,7 @@ pipeline {
         sh '''
           MAVEN_VERSION=3.9.9
           MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-          if [ -f settings.xml ]; then
-            ./${MAVEN_DIR}/bin/mvn -s settings.xml jacoco:report
-          else
-            ./${MAVEN_DIR}/bin/mvn jacoco:report
-          fi
+          ./${MAVEN_DIR}/bin/mvn jacoco:report
         '''
       }
     }
@@ -123,19 +109,11 @@ pipeline {
             sh '''
               MAVEN_VERSION=3.9.9
               MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-              if [ -f settings.xml ]; then
-                ./${MAVEN_DIR}/bin/mvn -s settings.xml clean verify sonar:sonar \
-                  -Dsonar.projectKey=tn.esprit:student-management \
-                  -Dsonar.projectVersion=${BUILD_NUMBER} \
-                  -Dsonar.token=$SONAR_TOKEN \
-                  -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-              else
-                ./${MAVEN_DIR}/bin/mvn clean verify sonar:sonar \
-                  -Dsonar.projectKey=tn.esprit:student-management \
-                  -Dsonar.projectVersion=${BUILD_NUMBER} \
-                  -Dsonar.token=$SONAR_TOKEN \
-                  -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-              fi
+              ./${MAVEN_DIR}/bin/mvn clean verify sonar:sonar \
+                -Dsonar.projectKey=tn.esprit:student-management \
+                -Dsonar.projectVersion=${BUILD_NUMBER} \
+                -Dsonar.token=$SONAR_TOKEN \
+                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
             '''
           }
         }
@@ -150,11 +128,7 @@ pipeline {
         sh '''
           MAVEN_VERSION=3.9.9
           MAVEN_DIR="apache-maven-${MAVEN_VERSION}"
-          if [ -f settings.xml ]; then
-            ./${MAVEN_DIR}/bin/mvn -s settings.xml package -DskipTests
-          else
-            ./${MAVEN_DIR}/bin/mvn package -DskipTests
-          fi
+          ./${MAVEN_DIR}/bin/mvn package -DskipTests
         '''
       }
     }
